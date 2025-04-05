@@ -93,17 +93,22 @@ class MultiHeadAttention(nn.Module):
         queries = queries.transpose(1, 2)
         values = values.transpose(1, 2)
 
-        #
+        # Calculate Attention score, and mask the upper triangle half with
+        # -Inf. This is done so that the model focuses on previous tokens
+        # which is typical in unidirectional(casual) attention models like GPT
         attention_scores = queries @ keys.transpose(2, 3)
         masks = self.upper_mask.bool()[:num_tokens, :num_tokens]
         attention_scores.masked_fill_(masks, -torch.inf)
 
-        # convert
+        # converts attention scores to probability, and apply dropout to reduce
+        # overfitting the model
         attention_weights = torch.softmax(
             attention_scores / keys.shape[-1]**0.5, dim=-1)
         attention_weights = self.dropout(attention_weights)
 
-        #
+        # Compute the context vector by applying the attention weights to the
+        # values.The result is then reshaped and projected back to the model's
+        # output dimension.
         context_vector = (attention_weights @ values).transpose(1, 2)
         context_vector = context_vector.contiguous().view(
             batch, num_tokens, self.dim_out)
