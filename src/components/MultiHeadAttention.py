@@ -35,6 +35,10 @@ class MultiHeadAttention(nn.Module):
             Query (Q), Key (K), and Value (v). They are vectors that are
             used in the mechanism to help the model make extra adjustment
             to better learn from the data.
+
+    Raises:
+        ValueError: One of the input or output dimensions do not match the
+            other.
     """
 
     def __init__(
@@ -42,15 +46,20 @@ class MultiHeadAttention(nn.Module):
         dim_in: int,
         dim_out: int,
         context_length: int,
-        dropout_rate: float,
-        num_heads: int,
+        dropout_rate: float = 0.0,
+        num_heads: int = 1,
         qkv_bias: bool = False
     ):
         super().__init__()
-        assert dim_out % num_heads == 0, \
-            "output dimension must be divisible by num_heads"
+
+        if dim_in != dim_out:
+            raise ValueError(
+                "`dim_out` must be divisible by `num_heads`."
+            )
+
         self.dim_in = dim_in
         self.dim_out = dim_out
+        self.num_heads = num_heads
         self.head_dim = dim_out // num_heads
         self.Query = nn.Linear(dim_in, dim_out, bias=qkv_bias)
         self.Key = nn.Linear(dim_in, dim_out, bias=qkv_bias)
@@ -59,6 +68,45 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout_rate)
         # Register buffers are used to ensure that the parameter is
         # non-trainable and will not be updated by gradient.
-        # The values are saved along with the model
+        # The values are saved along with the model.
+        # diagonal=1 here will not include diagonal and everything
+        # below
         self.register_buffer("upper_mask", torch.triu(
             torch.ones(context_length, context_length), diagonal=1))
+
+    def forward(self, inputs):
+        batch, num_tokens, _ = inputs.shape
+        keys = self.Key(inputs)
+        queries = self.Query(inputs)
+        values = self.Value(inputs)
+
+        # reshape keys, queries, values to separate them into multiple
+        # attention heads
+        keys = keys.view(batch, num_tokens, self.num_heads, self.head_dim)
+        queries = queries.view(
+            batch, num_tokens, self.num_heads, self.head_dim)
+        values = values.view(batch, num_tokens, self.num_heads, self.head_dim)
+
+        # transpose (batch, num_tokens, self.num_heads, self.head_dim) to
+        # (batch, self.num_heads, num_tokens, self.head_dim)
+        keys = keys.transpose(1, 2)
+        queries = queries.transpose(1, 2)
+        values = values.transpose(1, 2)
+
+        #
+        attention_scores = queries @ keys.transpose(2, 3)
+        masks = self.upper_mask.bool()[:num_tokens, :num_tokens]
+        attention_scores.masked_fill_(masks, -torch.inf)
+
+        # convert
+        attention_weights = torch.softmax(
+            attention_scores / keys.shape[-1]**0.5, dim=-1)
+        attention_weights = self.dropout(attention_weights)
+
+        #
+        context_vector = (attention_weights @ values).transpose(1, 2)
+        context_vector = context_vector.contiguous().view(
+            batch, num_tokens, self.dim_out)
+        context_vector = self.output_projection(context_vector)
+
+        return context_vector
