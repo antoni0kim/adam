@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from src.adam_config import CONFIG_TYPE, ADAM_CONFIG
+from src.adam_config import CONFIG_TYPE
 from .components.Decoder import Decoder
 
 
@@ -30,12 +30,3 @@ class AdamModel(nn.Module):
         x = self.final_norm(x)
         logits = self.out_head(x)
         return logits
-
-
-if __name__ == "__main__":
-    torch.manual_seed(123)
-    device = torch.device("cuda")
-    model = AdamModel(ADAM_CONFIG)
-    model = model.to(device)
-
-    print(model)
