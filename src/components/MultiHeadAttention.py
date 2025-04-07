@@ -37,8 +37,7 @@ class MultiHeadAttention(nn.Module):
             to better learn from the data.
 
     Raises:
-        ValueError: One of the input or output dimensions do not match the
-            other.
+        ValueError: dim_out must be divisible by num_heads
     """
 
     def __init__(
@@ -48,14 +47,12 @@ class MultiHeadAttention(nn.Module):
         context_length: int,
         dropout_rate: float = 0.0,
         num_heads: int = 1,
-        qkv_bias: bool = False
+        qkv_bias: bool = False,
     ):
         super().__init__()
 
-        if dim_in != dim_out:
-            raise ValueError(
-                "`dim_out` must be divisible by `num_heads`."
-            )
+        if dim_in % num_heads != 0:
+            raise ValueError("`dim_out` must be divisible by `num_heads`.")
 
         self.dim_in = dim_in
         self.dim_out = dim_out
@@ -71,8 +68,10 @@ class MultiHeadAttention(nn.Module):
         # The values are saved along with the model.
         # diagonal=1 here will not include diagonal and everything
         # below
-        self.register_buffer("upper_mask", torch.triu(
-            torch.ones(context_length, context_length), diagonal=1))
+        self.register_buffer(
+            "upper_mask",
+            torch.triu(torch.ones(context_length, context_length), diagonal=1),
+        )
 
     def forward(self, inputs):
         batch, num_tokens, _ = inputs.shape
@@ -83,8 +82,7 @@ class MultiHeadAttention(nn.Module):
         # reshape keys, queries, values to separate them into multiple
         # attention heads
         keys = keys.view(batch, num_tokens, self.num_heads, self.head_dim)
-        queries = queries.view(
-            batch, num_tokens, self.num_heads, self.head_dim)
+        queries = queries.view(batch, num_tokens, self.num_heads, self.head_dim)
         values = values.view(batch, num_tokens, self.num_heads, self.head_dim)
 
         # transpose (batch, num_tokens, self.num_heads, self.head_dim) to
@@ -97,13 +95,14 @@ class MultiHeadAttention(nn.Module):
         # -Inf. This is done so that the model focuses on previous tokens
         # which is typical in unidirectional(casual) attention models like GPT
         attention_scores = queries @ keys.transpose(2, 3)
-        masks = self.upper_mask.bool()[:num_tokens, :num_tokens]
+        masks = self.upper_mask[:num_tokens, :num_tokens].to(inputs.device).bool()
         attention_scores.masked_fill_(masks, -torch.inf)
 
         # converts attention scores to probability, and apply dropout to reduce
         # overfitting the model
         attention_weights = torch.softmax(
-            attention_scores / keys.shape[-1]**0.5, dim=-1)
+            attention_scores / keys.shape[-1] ** 0.5, dim=-1
+        )
         attention_weights = self.dropout(attention_weights)
 
         # Compute the context vector by applying the attention weights to the
@@ -111,7 +110,8 @@ class MultiHeadAttention(nn.Module):
         # output dimension.
         context_vector = (attention_weights @ values).transpose(1, 2)
         context_vector = context_vector.contiguous().view(
-            batch, num_tokens, self.dim_out)
+            batch, num_tokens, self.dim_out
+        )
         context_vector = self.output_projection(context_vector)
 
         return context_vector

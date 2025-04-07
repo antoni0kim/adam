@@ -15,25 +15,21 @@ class Decoder(nn.Module):
             context_length=CONFIG["context_length"],
             num_heads=CONFIG["num_heads"],
             dropout_rate=CONFIG["dropout_rate"],
-            qkv_bias=CONFIG["qkv_bias"]
+            qkv_bias=CONFIG["qkv_bias"],
         )
 
         self.feed_forward = FeedForward(CONFIG)
         self.layer_norm1 = nn.LayerNorm(CONFIG["emb_dim"])
         self.layer_norm2 = nn.LayerNorm(CONFIG["emb_dim"])
-        self.shortcut_dropout = nn.Dropout(CONFIG["dropout_rate"])
+        self.dropout = nn.Dropout(CONFIG["dropout_rate"])
 
     def forward(self, inputs):
-        shortcut = inputs
-        inner_path = self.layer_norm1(inputs)
-        inner_path = self.attention(inner_path)
-        inner_path = self.shortcut_dropout(inner_path)
-        inner_path = inner_path + shortcut
+        # Attention Block
+        attn_out = self.attention(self.layer_norm1(inputs))
+        x = inputs + self.dropout(attn_out)
 
-        shortcut = inner_path
-        inner_path = self.layer_norm2(inner_path)
-        inner_path = self.feed_forward(inner_path)
-        inner_path = self.shortcut_dropout(inner_path)
-        inner_path = inner_path + shortcut
+        # Feed Forward block
+        ff_out = self.feed_forward(self.layer_norm2(x))
+        x = x + self.dropout(ff_out)
 
-        return inner_path
+        return x
