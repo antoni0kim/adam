@@ -21,7 +21,7 @@ class TextDataset(Dataset):
     """
 
     def __init__(self, text, tokenizer, max_length, stride):
-        self.input_ids = []
+        self.inputs_ids = []
         self.target_ids = []
 
         token_ids = tokenizer.encode(text)
@@ -34,8 +34,8 @@ class TextDataset(Dataset):
             self.target_ids.append(torch.tensor(target_chunk))
 
     def __len__(self):
-        return len(self.input_ids)
+        return len(self.inputs_ids)
 
     # Return tokenized input and output pair in given index for training
     def __getitem__(self, idx):
-        return self.input_ids[idx], self.target_ids[idx]
+        return self.inputs_ids[idx], self.target_ids[idx]

@@ -1,10 +1,10 @@
 import tiktoken
 from torch.utils.data import DataLoader
 
-from .text_dataset import TextDataset
+from .datasets import TextDataset
 
 
-def text_dataloader(
+def create_text_dataloader(
     text,
     batch_size=4,
     max_length=256,
