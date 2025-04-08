@@ -18,9 +18,15 @@ class ModelTraining:
         self.model = model
         self.config = CONFIG
         self.device = device
+
+        # Data splitting
         split_index = int(train_ratio * len(dataset))
         train_data = dataset[:split_index]
         val_data = dataset[split_index:]
+
+        # Data loaders
+        assert CONFIG["context_length"] > 0, "Context length must be positive"
+
         self.training_loader = data_loader(
             train_data,
             batch_size=2,
@@ -39,6 +45,8 @@ class ModelTraining:
             shuffle=False,
             num_workers=0,
         )
+
+        # Loss functions
         self.loss_batch = loss_batch
         self.loss_loader = loss_loader
 
@@ -46,7 +54,9 @@ class ModelTraining:
         self, optimizer, num_epochs, eval_freq, eval_iter, start_context, tokenizer
     ):
         train_losses, val_losses, track_tokens_seen = [], [], []
-        tokens_seen, global_step = 0, -1
+        tokens_seen, global_step = 0, 0
+
+        eval_freq = max(eval_freq, 1)
 
         for epoch in range(num_epochs):
             self.model.train()
@@ -55,11 +65,15 @@ class ModelTraining:
                 loss = self.loss_batch(
                     input_batch, target_batch, self.model, self.device
                 )
+                if torch.isnan(loss):
+                    raise ValueError(f"NaN loss at epoch {epoch}, step {global_step}")
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
                 optimizer.step()
                 tokens_seen += input_batch.numel()
                 global_step += 1
 
+                # Evaluation
                 if global_step % eval_freq == 0:
                     train_loss, val_loss = self.evaluate_model(eval_iter)
                     train_losses.append(train_loss)
