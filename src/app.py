@@ -1,10 +1,38 @@
-import torch
+from pathlib import Path
 
-from .Adam import AdamModel
-from .adam_config import ADAM_CONFIG
+import typer
+from typing import Annotated
 
-device = torch.device("cuda")
-model = AdamModel(ADAM_CONFIG)
-model = model.to(device)
+from src.training.api import file_pretraining, generate_and_print
 
-print(model)
+app = typer.Typer()
+
+
+@app.command()
+def version():
+    print("0.0.1")
+
+
+@app.command()
+def pretrain(
+    file: Annotated[str, typer.Argument()],
+    directory: Annotated[str, typer.Option("--dir", "-d")] = ".",
+    epochs: Annotated[int, typer.Option("--epochs", "-e")] = 10,
+):
+    """Pretrain Adam's base model.
+
+    Requires file's path. If directory is set, trains every text file
+    in the directory.
+    """
+    curr_dir = Path(directory)
+    file_path = (curr_dir / file).resolve()
+    file_pretraining(file_path, epochs)
+
+
+@app.command()
+def generate(text: Annotated[str, typer.Argument()]):
+    generate_and_print(text)
+
+
+if __name__ == "__main__":
+    app()

@@ -13,10 +13,10 @@ class CONFIG_TYPE(TypedDict):
 
 ADAM_CONFIG: CONFIG_TYPE = {
     "vocab_size": 50257,
-    "context_length": 256,  # 1024 original
-    "emb_dim": 768,
-    "num_heads": 12,
-    "num_layers": 12,
+    "context_length": 1024,
+    "emb_dim": 1024,
+    "num_heads": 16,
+    "num_layers": 24,
     "dropout_rate": 0.1,
     "qkv_bias": False,
 }
