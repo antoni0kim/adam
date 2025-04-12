@@ -46,7 +46,7 @@ def file_pretraining(file: str, epochs: int = 100) -> None:
     minutes = int((elapsed % 3600) // 60)
     seconds = int(elapsed % 60)
 
-    print(f"Training time: {hours} hr {minutes} min {seconds} sec")
+    print(f"🕒 Training time: {hours} hr {minutes} min {seconds} sec")
 
     torch.save(
         {
@@ -55,6 +55,26 @@ def file_pretraining(file: str, epochs: int = 100) -> None:
         },
         "adam_weights.pth",
     )
+
+
+def directory_pretraining(directory: str, epochs: int = 100) -> None:
+    dir_path = Path(directory).resolve()
+
+    if not dir_path.exists() or not dir_path.is_dir():
+        raise ValueError(f"{directory} does not exist or is not a directory")
+
+    text_files = list(dir_path.glob("*.txt"))
+
+    if not text_files:
+        raise FileNotFoundError(f"No text files found in {directory}")
+
+    for file in text_files:
+        print(f"\n🚀 Starting pretraining for: {file.name}")
+        try:
+            file_pretraining(str(file), epochs=epochs)
+        except Exception as e:
+            raise RuntimeError(
+                f"❌ Error occurred while training on {file.name}: {e}")
 
 
 def generate_and_print(start_context):

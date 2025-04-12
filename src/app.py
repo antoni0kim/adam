@@ -1,9 +1,13 @@
 from pathlib import Path
 
 import typer
-from typing import Annotated
+from typing import Annotated, Optional
 
-from src.training.api import file_pretraining, generate_and_print
+from src.training.api import (
+    file_pretraining,
+    directory_pretraining,
+    generate_and_print,
+)
 
 app = typer.Typer()
 
@@ -15,7 +19,7 @@ def version():
 
 @app.command()
 def pretrain(
-    file: Annotated[str, typer.Argument()],
+    file: Annotated[Optional[str], typer.Option()] = None,
     directory: Annotated[str, typer.Option("--dir", "-d")] = ".",
     epochs: Annotated[int, typer.Option("--epochs", "-e")] = 10,
 ):
@@ -25,8 +29,12 @@ def pretrain(
     in the directory.
     """
     curr_dir = Path(directory)
-    file_path = (curr_dir / file).resolve()
-    file_pretraining(file_path, epochs)
+
+    if file:
+        file_path = (curr_dir / file).resolve()
+        file_pretraining(str(file_path), epochs=epochs)
+    else:
+        directory_pretraining(str(curr_dir), epochs=epochs)
 
 
 @app.command()
