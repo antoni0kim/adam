@@ -9,6 +9,23 @@ readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 dynamic = ["version", "description"]
+dependencies = [
+    "torch",
+    "tiktoken",
+    "typer",
+    "tqdm"
+]
 
 [project.urls]
 Home = "https://github.com/antoni0kim/adam"
+
+[project.optional-dependencies]
+test = [
+    "tox",
+    "black",
+    "pylint",
+    "pytest"
+]
+
+[tool.flit.module]
+name = "src.app" 

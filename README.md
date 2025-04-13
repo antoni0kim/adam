@@ -12,9 +12,19 @@ Adam is a compact yet powerful language model (LLM) application designed for fle
 
 - **Runs Locally:** The entire application resides on your machine, ensuring full control over your environment and data.
 
-### Scalability
+### Requirements
 
-- Start with GPT-2 for a lightweight solution or scale up to GPT-3.5 for more complex requirements, depending on the size of your dataset and the capabilities of your local machine.
+The app requires Nvidia GPU to run. It is recommended to have VRAM of 16 GB or higher. For storage you'll need at least 1.5 GB for torch.
+
+### Installation
+
+It is highly recommended to install and run the app inside virtual environment. For more information, please see [virtual environment](https://docs.python.org/3/library/venv.html) from python documentation. Download the repo and then run
+
+```bash
+pip3 install -e .
+```
+
+to install the dependencies first.
 
 ### Terminal Interface Commands
 

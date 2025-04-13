@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from src.adam_config import CONFIG_TYPE
-from .components.Decoder import Decoder
+from src.components.Decoder import Decoder
 
 
 class AdamModel(nn.Module):
@@ -10,14 +10,16 @@ class AdamModel(nn.Module):
         super().__init__()
         self.config: CONFIG_TYPE = CONFIG
         self.tok_emb = nn.Embedding(CONFIG["vocab_size"], CONFIG["emb_dim"])
-        self.pos_emb = nn.Embedding(CONFIG["context_length"], CONFIG["emb_dim"])
+        self.pos_emb = nn.Embedding(
+            CONFIG["context_length"], CONFIG["emb_dim"])
         self.drop_emb = nn.Dropout(CONFIG["dropout_rate"])
         self.trf_blocks = nn.Sequential(
             *[Decoder(CONFIG) for _ in range(CONFIG["num_layers"])]
         )
 
         self.final_norm = nn.LayerNorm(CONFIG["emb_dim"])
-        self.out_head = nn.Linear(CONFIG["emb_dim"], CONFIG["vocab_size"], bias=False)
+        self.out_head = nn.Linear(
+            CONFIG["emb_dim"], CONFIG["vocab_size"], bias=False)
 
         self.apply(self._init_weights)
 
