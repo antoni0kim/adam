@@ -39,3 +39,41 @@ class TextDataset(Dataset):
     # Return tokenized input and output pair in given index for training
     def __getitem__(self, idx):
         return self.inputs_ids[idx], self.target_ids[idx]
+
+
+class InstructionDataset(Dataset):
+    def __init__(self, data, tokenizer, max_length=1024, device="cpu"):
+        self.device = device
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.data = data
+
+        # Validate data format
+        assert all(
+            k in entry for entry in data for k in ("instruction", "output")
+        ), "Missing keys"
+
+        # Pre-process
+        self.encoded_texts = []
+        for entry in data:
+            text = self._format_text(entry)
+            encoded = tokenizer.encode(text)[:max_length]
+            self.encoded_texts.append(encoded)
+
+    def _format_text(self, entry):
+        parts = [
+            "Below is an instruction that describes a task.",
+            "Write a response that appropriately completes the request.",
+            f"\n\n### Instruction:\n{entry['instruction']}",
+            f"\n\n### Input:\n{entry['input']}" if entry["input"] else "",
+            f"\n\n### Response:\n{entry['output']}",
+        ]
+        return "".join(parts)
+
+    def __getitem__(self, index):
+        return torch.tensor(
+            self.encoded_texts[index], device=self.device, dtype=torch.long
+        )
+
+    def __len__(self):
+        return len(self.data)

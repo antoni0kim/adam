@@ -1,5 +1,6 @@
 from pathlib import Path
 import time
+import json
 
 import tiktoken
 import torch
@@ -7,6 +8,7 @@ import torch
 from src.Adam import AdamModel
 from src.adam_config import ADAM_CONFIG
 from src.training.ModelTraining import ModelTraining
+from src.training.InstructionTraining import InstructionTraining
 from src.utils.dataloaders import create_text_dataloader
 from src.utils.loss_calculation import loss_loader, loss_batch
 from src.utils.token_conversions import token_ids_to_text, text_to_token_ids
@@ -57,6 +59,45 @@ def file_pretraining(file: str, epochs: int = 100) -> None:
     )
 
 
+def instructions_pretraining(
+    file: str, epochs: int = 100, batch_size: int = 8, eval_freq: int = 5
+) -> None:
+    _load_model()
+    with open(file, "r") as f:
+        dataset = json.load(f)
+
+    training = InstructionTraining(
+        model=model,
+        CONFIG=ADAM_CONFIG,
+        dataset=dataset,
+        loss_batch=loss_batch,
+        loss_loader=loss_loader,
+        batch_size=batch_size,
+    )
+
+    start_time = time.time()
+    for epoch in range(1, epochs + 1):
+        training.train_epoch(
+            optimizer, eval_freq=eval_freq, epoch=epoch, total_epochs=epochs
+        )
+    end_time = time.time()
+    elapsed = end_time - start_time
+
+    hours = int(elapsed // 3600)
+    minutes = int((elapsed % 3600) // 60)
+    seconds = int(elapsed % 60)
+
+    print(f"🕒 Training time: {hours} hr {minutes} min {seconds} sec")
+
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+        },
+        "instruction_weights.pth",
+    )
+
+
 def directory_pretraining(directory: str, epochs: int = 100) -> None:
     dir_path = Path(directory).resolve()
 
@@ -73,8 +114,7 @@ def directory_pretraining(directory: str, epochs: int = 100) -> None:
         try:
             file_pretraining(str(file), epochs=epochs)
         except Exception as e:
-            raise RuntimeError(
-                f"❌ Error occurred while training on {file.name}: {e}")
+            raise RuntimeError(f"❌ Error occurred while training on {file.name}: {e}")
 
 
 def generate_and_print(start_context):
@@ -91,11 +131,34 @@ def generate_and_print(start_context):
     model.train()
 
 
+def ask_question(question: str) -> None:
+    _load_instructions()
+    model.eval()
+    input_ids = torch.tensor([tokenizer.encode(question)], device=device)
+    context_size = model.pos_emb.weight.shape[0]
+    generated_ids = _generate_text_simple(
+        input_ids, max_new_tokens=50, context_size=context_size
+    )
+    response = token_ids_to_text(generated_ids, tokenizer)
+    response = response.split("### Response:")[-1].strip()
+    response = response.split("\n\n###")[0].strip()
+
+    print(response)
+
+
 def _load_model():
     adam_weights = Path("adam_weights.pth")
     if adam_weights.exists():
-        print("Pre-train weights found.")
+        print("✅ Pre-train weights found.")
         weights = torch.load(adam_weights)
+        model.load_state_dict(weights["model_state_dict"])
+        optimizer.load_state_dict(weights["optimizer_state_dict"])
+
+
+def _load_instructions():
+    instruction_weights = Path("instruction_weights.pth")
+    if instruction_weights.exists():
+        weights = torch.load(instruction_weights)
         model.load_state_dict(weights["model_state_dict"])
         optimizer.load_state_dict(weights["optimizer_state_dict"])
 

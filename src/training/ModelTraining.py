@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 
 
 class ModelTraining:
@@ -56,30 +57,41 @@ class ModelTraining:
 
         for epoch in range(num_epochs):
             self.model.train()
-            for input_batch, target_batch in self.training_loader:
-                optimizer.zero_grad()
-                loss = self.loss_batch(
-                    input_batch, target_batch, self.model, self.device
-                )
-                if torch.isnan(loss):
-                    raise ValueError(f"NaN loss at epoch {epoch}, step {global_step}")
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
-                optimizer.step()
-                tokens_seen += input_batch.numel()
-                global_step += 1
-
-                # Evaluation
-                if global_step % eval_freq == 0:
-                    train_loss, val_loss = self.evaluate_model(eval_iter)
-                    train_losses.append(train_loss)
-                    val_losses.append(val_loss)
-                    track_tokens_seen.append(tokens_seen)
-                    print(
-                        f"Ep {epoch+1} (Step {global_step:06d}): "
-                        f"Train loss {train_loss:.3f}, "
-                        f"Val loss {val_loss:.3f}"
+            with tqdm(
+                total=len(self.training_loader),
+                desc=f"Epoch {epoch+1}/{num_epochs}",
+                unit="step",
+            ) as pbar:
+                for input_batch, target_batch in self.training_loader:
+                    optimizer.zero_grad()
+                    loss = self.loss_batch(
+                        input_batch, target_batch, self.model, self.device
                     )
+                    if torch.isnan(loss):
+                        raise ValueError(
+                            f"NaN loss at epoch {epoch}, step {global_step}"
+                        )
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(), max_norm=1.0
+                    )
+                    optimizer.step()
+                    tokens_seen += input_batch.numel()
+                    global_step += 1
+
+                    # Evaluation
+                    if global_step % eval_freq == 0:
+                        train_loss, val_loss = self.evaluate_model(eval_iter)
+                        train_losses.append(train_loss)
+                        val_losses.append(val_loss)
+                        track_tokens_seen.append(tokens_seen)
+                        pbar.set_postfix(
+                            {
+                                "Training Loss": train_loss.item(),
+                                "Validation Loss": val_loss.item(),
+                            }
+                        )
+                    pbar.update(1)
 
         return train_losses, val_losses, track_tokens_seen
 
